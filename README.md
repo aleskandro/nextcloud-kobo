@@ -75,7 +75,9 @@ The `config.yaml` file is the core configuration file for this daemon.
 
 ### Configuration Options
 
-- **autoUpdate**: If set to `true`, the daemon will automatically update from the GitHub release page after the first run.
+- **auto_update**: If set to `true`, the daemon will automatically update from the GitHub release page after the first run.
+- **repo_owner**: defaults to `aleskandro` and used as the source for the repo owner of the automatic updates (override if forking).
+- **repo_name**: defaults to `nextcloud-kobo` and used as the source for the repo name of the automatic updates (override if forking).
 - **remotes**: a list of Nextcloud remotes to sync with the Kobo device.
 
 #### Remote Options
