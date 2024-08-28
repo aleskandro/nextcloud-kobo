@@ -1,0 +1,11 @@
+remotes:
+  - url: https://nextcloud.jdoe.com/s/abc123
+    local_path: share1/
+  - url: https://nextcloud.jdoe.com/
+    username: john # Do not set if using a share link
+    password: doe
+    remote_folder: /my-remote-folder/ # Do not set if using a share link
+    local_path: share2/
+  - url: https://nextcloud.jdoe.com/s/abc123
+    password: doe
+    local_path: share3/

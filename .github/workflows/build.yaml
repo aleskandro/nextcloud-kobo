@@ -1,0 +1,128 @@
+name: Build and test
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+  workflow_dispatch: { }
+  pull_request: { }
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+          check-latest: true
+      - name: lint
+        run: |
+          make lint
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+          check-latest: true
+      - name: fmt
+        run: |
+          make fmt
+  vet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+          check-latest: true
+      - name: vet
+        run: |
+          make vet
+  goimports:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+          check-latest: true
+      - name: goimports
+        run: |
+          make goimports
+  gosec:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+          check-latest: true
+      - name: gosec
+        run: |
+          make gosec
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+          check-latest: true
+      - name: unit
+        run: |
+          make unit
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+        contents: write
+    needs:
+      - fmt
+      - goimports
+      - gosec
+      - lint
+      - test
+      - vet
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+          check-latest: true
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build image
+        run: |
+          make koboroot
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: ncipollo/release-action@v1.14.0
+        with:
+          allowUpdates: true
+          artifacts: _artifacts/KoboRoot.tgz
+          #generate_release_notes: true
+          #make_latest: true

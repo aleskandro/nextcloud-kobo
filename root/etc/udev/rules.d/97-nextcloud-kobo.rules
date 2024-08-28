@@ -1,0 +1,2 @@
+KERNEL=="lo", RUN+="/bin/sh /usr/local/nextcloud-kobo/run.sh"
+
