@@ -120,8 +120,10 @@ make test
 To build the project, execute the following command:
 
 ```bash
-make package
+make koboroot
 ```
+
+The output KoboRoot.tgz file will be located in the `_artifacts` directory.
 
 ## License
 
