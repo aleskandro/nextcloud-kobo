@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/godbus/dbus/v5"
@@ -18,7 +19,7 @@ import (
 type NetworkConnectionReconciler struct {
 	conn   *dbus.Conn
 	ch     chan *dbus.Signal
-	syncer *Syncer
+	config *Config
 }
 
 var networkConnectionFailedErr = fmt.Errorf("network connection failed")
@@ -38,7 +39,7 @@ func NewNetworkConnectionReconciler(config *Config) *NetworkConnectionReconciler
 	return &NetworkConnectionReconciler{
 		conn:   conn,
 		ch:     ch,
-		syncer: NewSyncer(config),
+		config: config,
 	}
 }
 
@@ -50,6 +51,9 @@ func (n *NetworkConnectionReconciler) Run(ctx context.Context) {
 		//nolint:errcheck
 		n.conn.Close()
 	}()
+	var cancel context.CancelFunc
+	var childCtx context.Context
+	var wg = sync.WaitGroup{}
 	for {
 		fmt.Println("Listening for network connection signals from Nickel...")
 		select {
@@ -71,16 +75,31 @@ func (n *NetworkConnectionReconciler) Run(ctx context.Context) {
 				log.Println("Received unexpected signal", signal.Name)
 				continue
 			}
-			err := n.handleWmNetworkConnected()
-			if err != nil {
-				log.Println("Failed to handle network connected signal", err)
+			if cancel != nil {
+				cancel()
 			}
+			wg.Wait()
+			childCtx, cancel = context.WithCancel(ctx)
+			wg.Add(1)
+			go func() {
+				defer func() {
+					wg.Done()
+					if childCtx.Err() == nil {
+						cancel()
+						cancel = nil
+					}
+				}()
+				err := n.handleWmNetworkConnected(childCtx)
+				if err != nil {
+					log.Println("Failed to handle network connected signal", err)
+				}
+			}()
 		}
 	}
 }
 
-func (n *NetworkConnectionReconciler) handleWmNetworkConnected() error {
-	filesMap, nUpdatedFiles, err := n.SyncNow()
+func (n *NetworkConnectionReconciler) handleWmNetworkConnected(ctx context.Context) error {
+	filesMap, nUpdatedFiles, err := n.SyncNow(ctx)
 	if err != nil {
 		log.Println("Failed to sync", err)
 		if errors.Is(err, networkConnectionFailedErr) {
@@ -93,7 +112,7 @@ func (n *NetworkConnectionReconciler) handleWmNetworkConnected() error {
 		n.notifyNickel(fmt.Sprintf("Synced %d files:\n%s", nUpdatedFiles, generateFilesString(filesMap)))
 	}
 	log.Println("Sync successful")
-	if n.syncer.config.AutoUpdate && n.UpdateNow() {
+	if n.config.AutoUpdate && n.UpdateNow() {
 		log.Println("Auto update successful")
 		n.notifyNickel("An update for Nextcloud-Kobo is available")
 		os.Exit(0) // Exit to restart the application
@@ -105,14 +124,14 @@ func (n *NetworkConnectionReconciler) UpdateNow() bool {
 	// Check the latest version on GitHub
 	cli := github.NewClient(nil)
 	release, _, err := cli.Repositories.GetLatestRelease(context.Background(),
-		n.syncer.config.RepoOwner, n.syncer.config.RepoName)
+		n.config.RepoOwner, n.config.RepoName)
 	// If we can't get the latest release, don't update
 	if err != nil {
 		log.Println("Failed to get latest release", err)
 		return false
 	}
 	// get the latest updated version stored in the config
-	version, err := os.ReadFile(path.Join(n.syncer.config.configPath, "version.txt"))
+	version, err := os.ReadFile(path.Join(n.config.configPath, "version.txt"))
 	if err != nil && !os.IsNotExist(err) {
 		log.Println("Failed to read version file", err)
 		return false
@@ -137,7 +156,7 @@ func (n *NetworkConnectionReconciler) UpdateNow() bool {
 	defer resp.Body.Close()
 
 	// Save the latest release to a file
-	file, err := os.Create(path.Join(n.syncer.config.configPath, "nextcloud-kobo.tar.gz"))
+	file, err := os.Create(path.Join(n.config.configPath, "nextcloud-kobo.tar.gz"))
 	if err != nil {
 		log.Println("Failed to create release file", err)
 		return false
@@ -151,7 +170,7 @@ func (n *NetworkConnectionReconciler) UpdateNow() bool {
 		return false
 	}
 	// Write the latest release to a file
-	versionFile, err := os.Create(path.Join(n.syncer.config.configPath, "version.txt"))
+	versionFile, err := os.Create(path.Join(n.config.configPath, "version.txt"))
 	if err != nil {
 		log.Println("Failed to create version file", err)
 		return false
@@ -164,15 +183,17 @@ func (n *NetworkConnectionReconciler) UpdateNow() bool {
 	return true
 }
 
-func (n *NetworkConnectionReconciler) SyncNow() (filesMap map[string][]string, nUpdatedFiles int, err error) {
-	if err = checkNetwork(); err != nil {
+func (n *NetworkConnectionReconciler) SyncNow(ctx context.Context) (filesMap map[string][]string, nUpdatedFiles int, err error) {
+	checkNetworkCtx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	if err = checkNetwork(checkNetworkCtx); err != nil {
 		log.Println("Network connection failed", err)
 		return filesMap, 0, networkConnectionFailedErr
 	}
-
-	filesMap, err = n.syncer.RunSync()
+	n.notifyNickel("Syncing with Nextcloud...")
+	filesMap, err = n.runSync(ctx)
 	if err != nil {
-		return
+		log.Println("An error occurred during synchronization", err)
 	}
 	for _, files := range filesMap {
 		nUpdatedFiles += len(files)
@@ -206,14 +227,22 @@ func (n *NetworkConnectionReconciler) notifyNickel(message string) {
 	}
 }
 
-func checkNetwork() error {
+func (n *NetworkConnectionReconciler) keepNetworkAlive() {
+	obj := n.conn.Object("com.github.shermp.nickeldbus", "/nickeldbus")
+	call := obj.Call("com.github.shermp.nickeldbus.wfmConnectWirelessSilently", 0)
+	if call.Err != nil {
+		log.Println("Failed to notify Nickel", call.Err)
+	}
+}
+
+func checkNetwork(ctx context.Context) error {
 	// Wait for the network to be fully connected
 	for i := 0; i < 10; i++ {
 		// Check if a web request to google is successful
 		client := &http.Client{
 			Timeout: 5 * time.Second,
 		}
-		req, err := http.NewRequest("GET", "http://www.google.com", nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", "http://www.google.com", nil)
 		if err != nil {
 			log.Println("Fatal error", err)
 			return err

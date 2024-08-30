@@ -25,7 +25,7 @@ func main() {
 	controller := pkg.NewNetworkConnectionReconciler(config)
 	ctx := SetupSignalHandler()
 	if *sync {
-		_, _, err = controller.SyncNow()
+		_, _, err = controller.SyncNow(ctx)
 		if err != nil {
 			return
 		}
