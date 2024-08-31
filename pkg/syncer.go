@@ -107,14 +107,7 @@ func (n *NetworkConnectionReconciler) syncFolder(client *gowebdav.Client, ctx co
 			localFileMap[localFilePath] = localFilePath
 			if shouldDownloadFile(localFilePath, file.ModTime(), file.Size()) {
 				log.Printf("Downloading file %s to %s\n", remoteFilePath, localFilePath)
-				var data []byte
-				data, err = client.Read(remoteFilePath)
-				if err != nil {
-					return
-				}
-				//#nosec G306
-				err = os.WriteFile(localFilePath, data, 0644)
-				if err != nil {
+				if err = downloadFile(client, remoteFilePath, localFilePath); err != nil {
 					return
 				}
 				updatedFiles = append(updatedFiles, localFilePath)
@@ -227,4 +220,27 @@ func generateFilesString(filesMap map[string][]string) (filesString string) {
 		}
 	}
 	return
+}
+
+func downloadFile(client *gowebdav.Client, remoteFilePath, localFilePath string) error {
+	log.Printf("Downloading file %s to %s\n", remoteFilePath, localFilePath)
+	remoteFileReader, err := client.ReadStream(remoteFilePath) // Assuming ReadStream returns an io.ReadCloser
+	if err != nil {
+		return fmt.Errorf("error reading remote file %s: %w", remoteFilePath, err)
+	}
+	//nolint:errcheck
+	defer remoteFileReader.Close()
+
+	localFileWriter, err := os.Create(path.Clean(localFilePath))
+	if err != nil {
+		return fmt.Errorf("error creating local file %s: %w", localFilePath, err)
+	}
+	//nolint:errcheck
+	defer localFileWriter.Close()
+
+	if _, err := io.Copy(localFileWriter, remoteFileReader); err != nil {
+		return fmt.Errorf("error writing to local file %s: %w", localFilePath, err)
+	}
+
+	return nil
 }
