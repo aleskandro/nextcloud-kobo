@@ -103,19 +103,7 @@ func (n *NetworkConnectionReconciler) Run(ctx context.Context) {
 }
 
 func (n *NetworkConnectionReconciler) handleWmNetworkConnected(ctx context.Context) error {
-	filesMap, nUpdatedFiles, err := n.SyncNow(ctx)
-	if err != nil {
-		log.Println("Failed to sync", err)
-		if errors.Is(err, networkConnectionFailedErr) {
-			return nil
-		}
-		n.messagesChan <- fmt.Sprintf("Failed to sync: %s\n%s", err.Error(), generateFilesString(filesMap))
-		return err
-	}
-	if nUpdatedFiles > 0 {
-		n.messagesChan <- fmt.Sprintf("Synced %d files:\n%s", nUpdatedFiles, generateFilesString(filesMap))
-	}
-	log.Println("Sync successful")
+	n.SyncNow(ctx)
 	if n.config.AutoUpdate && n.UpdateNow() {
 		log.Println("Auto update successful")
 		n.messagesChan <- "An update for Nextcloud-Kobo is available"
@@ -192,6 +180,9 @@ func (n *NetworkConnectionReconciler) SyncNow(ctx context.Context) (filesMap map
 	defer cancel()
 	if err = checkNetwork(checkNetworkCtx); err != nil {
 		log.Println("Network connection failed", err)
+		if !errors.Is(err, networkConnectionFailedErr) {
+			n.messagesChan <- fmt.Sprintf("Failed to sync: %s\n%s", err.Error(), generateFilesString(filesMap))
+		}
 		return filesMap, 0, networkConnectionFailedErr
 	}
 	n.messagesChan <- "Syncing with Nextcloud..."
@@ -202,10 +193,13 @@ func (n *NetworkConnectionReconciler) SyncNow(ctx context.Context) (filesMap map
 	for _, files := range filesMap {
 		nUpdatedFiles += len(files)
 	}
-	if nUpdatedFiles == 0 {
+	if nUpdatedFiles > 0 {
+		n.messagesChan <- fmt.Sprintf("Synced %d files:\n%s", nUpdatedFiles, generateFilesString(filesMap))
+	} else {
+		n.messagesChan <- "No files updated"
 		log.Println("No files updated")
-		return
 	}
+	log.Println("Sync successful")
 	err = n.rescanBooks()
 	if err != nil {
 		return
