@@ -68,7 +68,6 @@ func (n *NetworkConnectionReconciler) syncFolder(client *gowebdav.Client, ctx co
 		} else {
 			localFileMap[localFilePath] = localFilePath
 			if shouldDownloadFile(localFilePath, file.ModTime(), file.Size()) {
-				n.keepNetworkAlive()
 				log.Printf("Downloading file %s to %s\n", remoteFilePath, localFilePath)
 				var data []byte
 				data, err = client.Read(remoteFilePath)
@@ -82,7 +81,7 @@ func (n *NetworkConnectionReconciler) syncFolder(client *gowebdav.Client, ctx co
 				}
 				updatedFiles = append(updatedFiles, localFilePath)
 				log.Println("Downloaded file", localFilePath)
-				n.notifyNickel(fmt.Sprintf("Downloaded %s", remoteFilePath))
+				n.messagesChan <- fmt.Sprintf("Downloaded %s", remoteFilePath)
 			} else {
 				log.Println("Skipping file", remoteFilePath)
 			}

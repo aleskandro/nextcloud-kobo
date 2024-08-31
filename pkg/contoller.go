@@ -17,9 +17,10 @@ import (
 )
 
 type NetworkConnectionReconciler struct {
-	conn   *dbus.Conn
-	ch     chan *dbus.Signal
-	config *Config
+	conn         *dbus.Conn
+	ch           chan *dbus.Signal
+	config       *Config
+	messagesChan chan string
 }
 
 var networkConnectionFailedErr = fmt.Errorf("network connection failed")
@@ -37,9 +38,10 @@ func NewNetworkConnectionReconciler(config *Config) *NetworkConnectionReconciler
 	}
 	conn.Signal(ch)
 	return &NetworkConnectionReconciler{
-		conn:   conn,
-		ch:     ch,
-		config: config,
+		conn:         conn,
+		ch:           ch,
+		config:       config,
+		messagesChan: make(chan string, 16),
 	}
 }
 
@@ -94,6 +96,8 @@ func (n *NetworkConnectionReconciler) Run(ctx context.Context) {
 					log.Println("Failed to handle network connected signal", err)
 				}
 			}()
+			go n.keepNetworkAlive(childCtx)
+			go n.dispatchMessages(childCtx)
 		}
 	}
 }
@@ -105,16 +109,16 @@ func (n *NetworkConnectionReconciler) handleWmNetworkConnected(ctx context.Conte
 		if errors.Is(err, networkConnectionFailedErr) {
 			return nil
 		}
-		n.notifyNickel(fmt.Sprintf("Failed to sync: %s\n%s", err.Error(), generateFilesString(filesMap)))
+		n.messagesChan <- fmt.Sprintf("Failed to sync: %s\n%s", err.Error(), generateFilesString(filesMap))
 		return err
 	}
 	if nUpdatedFiles > 0 {
-		n.notifyNickel(fmt.Sprintf("Synced %d files:\n%s", nUpdatedFiles, generateFilesString(filesMap)))
+		n.messagesChan <- fmt.Sprintf("Synced %d files:\n%s", nUpdatedFiles, generateFilesString(filesMap))
 	}
 	log.Println("Sync successful")
 	if n.config.AutoUpdate && n.UpdateNow() {
 		log.Println("Auto update successful")
-		n.notifyNickel("An update for Nextcloud-Kobo is available")
+		n.messagesChan <- "An update for Nextcloud-Kobo is available"
 		os.Exit(0) // Exit to restart the application
 	}
 	return nil
@@ -190,7 +194,7 @@ func (n *NetworkConnectionReconciler) SyncNow(ctx context.Context) (filesMap map
 		log.Println("Network connection failed", err)
 		return filesMap, 0, networkConnectionFailedErr
 	}
-	n.notifyNickel("Syncing with Nextcloud...")
+	n.messagesChan <- "Syncing with Nextcloud..."
 	filesMap, err = n.runSync(ctx)
 	if err != nil {
 		log.Println("An error occurred during synchronization", err)
@@ -225,6 +229,7 @@ func (n *NetworkConnectionReconciler) notifyNickel(message string) {
 	if call.Err != nil {
 		log.Println("Failed to notify Nickel", call.Err)
 	}
+	time.Sleep(time.Second * 5)
 }
 
 func (n *NetworkConnectionReconciler) keepNetworkAlive() {
@@ -268,4 +273,15 @@ func generateFilesString(filesMap map[string][]string) (filesString string) {
 		}
 	}
 	return
+}
+
+func (n *NetworkConnectionReconciler) dispatchMessages(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case message := <-n.messagesChan:
+			n.notifyNickel(message)
+		}
+	}
 }
