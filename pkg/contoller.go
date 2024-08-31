@@ -232,11 +232,20 @@ func (n *NetworkConnectionReconciler) notifyNickel(message string) {
 	time.Sleep(time.Second * 5)
 }
 
-func (n *NetworkConnectionReconciler) keepNetworkAlive() {
-	obj := n.conn.Object("com.github.shermp.nickeldbus", "/nickeldbus")
-	call := obj.Call("com.github.shermp.nickeldbus.wfmConnectWirelessSilently", 0)
-	if call.Err != nil {
-		log.Println("Failed to notify Nickel", call.Err)
+func (n *NetworkConnectionReconciler) keepNetworkAlive(ctx context.Context) {
+	ticker := time.NewTicker(time.Second * 30)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			obj := n.conn.Object("com.github.shermp.nickeldbus", "/nickeldbus")
+			call := obj.Call("com.github.shermp.nickeldbus.wfmConnectWirelessSilently", 0)
+			if call.Err != nil {
+				log.Println("Failed to notify Nickel", call.Err)
+			}
+		}
 	}
 }
 
