@@ -25,10 +25,7 @@ func main() {
 	controller := pkg.NewNetworkConnectionReconciler(config)
 	ctx := SetupSignalHandler()
 	if *sync {
-		_, _, err = controller.SyncNow(ctx)
-		if err != nil {
-			return
-		}
+		controller.HandleWmNetworkConnected(ctx)
 	}
 	controller.Run(ctx)
 }
