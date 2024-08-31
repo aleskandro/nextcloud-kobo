@@ -22,8 +22,8 @@ func main() {
 		log.Println(err)
 		return
 	}
-	controller := pkg.NewNetworkConnectionReconciler(config)
 	ctx := SetupSignalHandler()
+	controller := pkg.NewNetworkConnectionReconciler(config, ctx)
 	if *sync {
 		controller.HandleWmNetworkConnected(ctx)
 	}

@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path"
@@ -10,17 +9,8 @@ import (
 
 func shouldDownloadFile(localFilePath string, remoteModTime time.Time, size int64) bool {
 	info, err := os.Stat(localFilePath)
-	if os.IsNotExist(err) {
-		return true
-	}
-	if err != nil {
-		fmt.Println("Error getting local file info:", err)
-		return true
-	}
-	if info.Size() != size {
-		return true
-	}
-	return remoteModTime.After(info.ModTime())
+	log.Println("Checking existence of ", localFilePath)
+	return err != nil || info.Size() != size || remoteModTime.After(info.ModTime())
 }
 
 func removeRemotelyDeletedFiles(localFileMap map[string]string, localPath string) (err error) {

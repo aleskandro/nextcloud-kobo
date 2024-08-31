@@ -98,7 +98,8 @@ func (n *NetworkConnectionReconciler) syncFolder(client *gowebdav.Client, ctx co
 				return
 			}
 			var updatedFilesRec []string
-			updatedFilesRec, err = n.syncFolder(client, ctx, remoteFilePath+"/", localFilePath)
+			localFileMap[localFilePath] = localFilePath
+			updatedFilesRec, err = n.syncFolder(client, ctx, remoteFilePath, localFilePath)
 			updatedFiles = append(updatedFiles, updatedFilesRec...)
 			if err != nil {
 				return
@@ -106,12 +107,10 @@ func (n *NetworkConnectionReconciler) syncFolder(client *gowebdav.Client, ctx co
 		} else {
 			localFileMap[localFilePath] = localFilePath
 			if shouldDownloadFile(localFilePath, file.ModTime(), file.Size()) {
-				log.Printf("Downloading file %s to %s\n", remoteFilePath, localFilePath)
 				if err = downloadFile(client, remoteFilePath, localFilePath); err != nil {
 					return
 				}
 				updatedFiles = append(updatedFiles, localFilePath)
-				log.Println("Downloaded file", localFilePath)
 				n.toastsChan <- fmt.Sprintf("Downloaded %s", remoteFilePath)
 			} else {
 				log.Println("Skipping file", remoteFilePath)
@@ -238,9 +237,9 @@ func downloadFile(client *gowebdav.Client, remoteFilePath, localFilePath string)
 	//nolint:errcheck
 	defer localFileWriter.Close()
 
-	if _, err := io.Copy(localFileWriter, remoteFileReader); err != nil {
+	if _, err = io.Copy(localFileWriter, remoteFileReader); err != nil {
 		return fmt.Errorf("error writing to local file %s: %w", localFilePath, err)
 	}
-
+	log.Println("Downloaded file", localFilePath)
 	return nil
 }

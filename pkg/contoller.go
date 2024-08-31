@@ -22,7 +22,7 @@ type NetworkConnectionReconciler struct {
 
 var networkConnectionFailedErr = fmt.Errorf("network connection failed")
 
-func NewNetworkConnectionReconciler(config *Config) *NetworkConnectionReconciler {
+func NewNetworkConnectionReconciler(config *Config, ctx context.Context) *NetworkConnectionReconciler {
 	conn, err := dbus.SystemBus()
 	if err != nil {
 		log.Fatalf("Failed to connect to system bus: %v", err)
@@ -34,12 +34,15 @@ func NewNetworkConnectionReconciler(config *Config) *NetworkConnectionReconciler
 		log.Fatalf("Failed to add D-Bus match: %v", call.Err)
 	}
 	conn.Signal(ch)
-	return &NetworkConnectionReconciler{
+	n := &NetworkConnectionReconciler{
 		conn:       conn,
 		dbusChan:   ch,
 		config:     config,
 		toastsChan: make(chan string, 16),
+		wg:         &sync.WaitGroup{},
 	}
+	go n.dispatchMessages(ctx)
+	return n
 }
 
 func (n *NetworkConnectionReconciler) Run(ctx context.Context) {
@@ -82,14 +85,10 @@ func (n *NetworkConnectionReconciler) HandleWmNetworkConnected(ctx context.Conte
 	}
 	n.wg.Wait()
 	n.syncCtx, n.syncCtxCancel = context.WithCancel(ctx)
-	n.wg.Add(3)
+	n.wg.Add(2)
 	go func() {
 		defer n.wg.Done()
 		n.keepNetworkAlive(n.syncCtx)
-	}()
-	go func() {
-		defer n.wg.Done()
-		n.dispatchMessages(n.syncCtx)
 	}()
 	go func() {
 		defer n.wg.Done()
@@ -99,7 +98,7 @@ func (n *NetworkConnectionReconciler) HandleWmNetworkConnected(ctx context.Conte
 				n.syncCtxCancel = nil
 			}
 		}()
-		n.sync(ctx)
+		n.sync(n.syncCtx)
 		if n.config.AutoUpdate {
 			n.updateNow()
 		}
@@ -112,6 +111,7 @@ func (n *NetworkConnectionReconciler) keepNetworkAlive(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			log.Println("[keepNetworkAlive] context closed")
 			return
 		case <-ticker.C:
 			obj := n.conn.Object("com.github.shermp.nickeldbus", "/nickeldbus")
@@ -127,6 +127,7 @@ func (n *NetworkConnectionReconciler) dispatchMessages(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			log.Println("[dispatchMessages] context closed")
 			return
 		case message := <-n.toastsChan:
 			n.notifyNickel(message)
