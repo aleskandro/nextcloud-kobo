@@ -189,11 +189,14 @@ func (n *NetworkConnectionReconciler) updateNow() {
 func checkNetwork(ctx context.Context) error {
 	// Wait for the network to be fully connected
 	for i := 0; i < 10; i++ {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		// Check if a web request to google is successful
 		client := &http.Client{
 			Timeout: 5 * time.Second,
 		}
-		req, err := http.NewRequestWithContext(ctx, "GET", "http://www.google.com", nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", "https://www.google.com", nil)
 		if err != nil {
 			log.Println("Fatal error", err)
 			return err
