@@ -28,7 +28,7 @@ fi
 if [ -f /mnt/onboard/.adds/nextcloud-kobo/nextcloud-kobo.tar.gz ]; then
   echo "$(date) Updating NextCloud-Kobo" >> /mnt/onboard/.adds/nextcloud-kobo/nextcloud-kobo.log
   tar -xzf /mnt/onboard/.adds/nextcloud-kobo/nextcloud-kobo.tar.gz -C /
-  rm /mnt/onboard/nextcloud/nextcloud-kobo.tar.gz
+  rm /mnt/onboard/.adds/nextcloud-kobo/nextcloud-kobo.tar.gz
   echo "$(date) NextCloud-Kobo updated" >> /mnt/onboard/.adds/nextcloud-kobo/nextcloud-kobo.log
   exec /bin/sh /usr/local/nextcloud-kobo/run.sh
 fi
