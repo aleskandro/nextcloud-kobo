@@ -31,7 +31,6 @@ func (n *NetworkConnectionReconciler) sync(ctx context.Context) {
 		}
 		return
 	}
-	n.toastsChan <- "Syncing with Nextcloud..."
 	filesMap, err = n.syncRemotes(ctx)
 	if err != nil {
 		log.Println("An error occurred during synchronization", err)
@@ -42,7 +41,6 @@ func (n *NetworkConnectionReconciler) sync(ctx context.Context) {
 	if nUpdatedFiles > 0 {
 		n.toastsChan <- fmt.Sprintf("Synced %d files:\n%s", nUpdatedFiles, generateFilesString(filesMap))
 	} else {
-		n.toastsChan <- "No files updated"
 		log.Println("No files updated")
 	}
 	log.Println("Sync successful")
@@ -111,7 +109,6 @@ func (n *NetworkConnectionReconciler) syncFolder(client *gowebdav.Client, ctx co
 					return
 				}
 				updatedFiles = append(updatedFiles, localFilePath)
-				n.toastsChan <- fmt.Sprintf("Downloaded %s", remoteFilePath)
 			} else {
 				log.Println("Skipping file", remoteFilePath)
 			}
