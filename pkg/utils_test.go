@@ -4,6 +4,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -94,17 +95,25 @@ func TestRemoveRemotelyDeletedFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
+	// Create a sdr directory
+	sdrDir := filepath.Join(localDir, "my-annotation.sdr")
+	if err := os.Mkdir(sdrDir, 0755); err != nil {
+		t.Fatalf("Failed to create sdr directory: %v", err)
+	}
+
 	//nolint:errcheck
 	defer os.RemoveAll(localDir) // Clean up after the test
 
 	// Create some local files
-	localFile1 := filepath.Join(localDir, "file1.txt")
-	localFile2 := filepath.Join(localDir, "file2.txt")
-	if err := os.WriteFile(localFile1, []byte("content1"), 0644); err != nil {
-		t.Fatalf("Failed to create file1: %v", err)
+	localFiles := []string{
+		filepath.Join(localDir, "file1.txt"),
+		filepath.Join(localDir, "file2.txt"),
+		filepath.Join(sdrDir, "file3.lua.old"),
 	}
-	if err := os.WriteFile(localFile2, []byte("content2"), 0644); err != nil {
-		t.Fatalf("Failed to create file2: %v", err)
+	for _, file := range localFiles {
+		if err := os.WriteFile(file, []byte("content1"), 0644); err != nil {
+			t.Fatalf("Failed to create file1: %v", err)
+		}
 	}
 
 	// Define remote files map (file2 is missing)
@@ -118,11 +127,19 @@ func TestRemoveRemotelyDeletedFiles(t *testing.T) {
 		t.Fatalf("Function returned an error: %v", err)
 	}
 
-	// Check if the correct files were removed
-	if _, err := os.Stat(localFile1); os.IsNotExist(err) {
-		t.Errorf("file1.txt should not be deleted")
-	}
-	if _, err := os.Stat(localFile2); err == nil {
-		t.Errorf("file2.txt should have been deleted")
+	for _, file := range localFiles {
+		_, ok := remoteFiles[file]
+		if _, err := os.Stat(file); os.IsNotExist(err) && ok {
+			t.Errorf("file %s should not have been deleted", file)
+		}
+		if _, err := os.Stat(file); err == nil && !ok && !strings.Contains(file, sdrDir) {
+			t.Errorf("file %s should have been deleted", file)
+		}
+		if strings.Contains(file, sdrDir) {
+			// Check if the sdr directory is still present
+			if _, err := os.Stat(sdrDir); os.IsNotExist(err) {
+				t.Errorf("sdr directory should not have been deleted")
+			}
+		}
 	}
 }

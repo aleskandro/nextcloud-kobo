@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"time"
 )
 
@@ -17,6 +18,11 @@ func removeRemotelyDeletedFiles(localFileMap map[string]string, localPath string
 	files, _ := os.ReadDir(localPath)
 	for _, file := range files {
 		localFilePath := path.Join(localPath, file.Name())
+		if strings.HasSuffix(file.Name(), ".sdr") || strings.Contains(file.Name(), ".sdr/") {
+			// Ignore .sdr annotations written by KOReader
+			log.Println("Skipping file", file.Name(), localFilePath)
+			continue
+		}
 		if _, ok := localFileMap[localFilePath]; !ok {
 			log.Println("Removing file", file.Name(), localFilePath)
 			err = os.RemoveAll(localFilePath)
