@@ -17,7 +17,7 @@ is not guaranteed.
 
 ## Features
 
-- **Automatic Synchronization**: Syncs specified folders from Nextcloud to a designated folder on your Kobo eReader
+- **Automatic Synchronization**: Syncs specified folders from Nextcloud to a designated folder on your Kobo eReader. The software relies on shares-as-webdav
   every time it connects to the internet.
 - **Support for Multiple Remotes**: Manage and sync multiple Nextcloud endpoints and folders.
 - **Daemon Mode**: Runs quietly in the background as a daemon process.
@@ -28,6 +28,10 @@ is not guaranteed.
 To install the Nextcloud Sync Daemon on your Kobo eReader, follow these steps:
 
 ### Prerequisites
+
+## Dependencies
+ 
+- [NickelDBus](https://github.com/shermp/NickelDBus)
 
 ### Steps
 
