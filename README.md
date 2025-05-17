@@ -80,6 +80,10 @@ The `config.yaml` file is the core configuration file for this daemon.
 - **repo_name**: defaults to `nextcloud-kobo` and used as the source for the repo name of the automatic updates (override if forking).
 - **remotes**: a list of Nextcloud remotes to sync with the Kobo device.
 
+## Uninstallation
+
+To uninstall the Nextcloud Sync Daemon, create an empty file named `UNINSTALL` in the `/mnt/onboard/.adds/nextcloud-kobo/` folder.
+
 #### Remote Options
 
 - **URL**: The Nextcloud share link for the folder you want to sync or the nextcloud URL for user-password authentication.

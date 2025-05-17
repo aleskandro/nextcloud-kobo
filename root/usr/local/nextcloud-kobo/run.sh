@@ -32,4 +32,12 @@ if [ -f /mnt/onboard/.adds/nextcloud-kobo/nextcloud-kobo.tar.gz ]; then
   echo "$(date) NextCloud-Kobo updated" >> /mnt/onboard/.adds/nextcloud-kobo/nextcloud-kobo.log
   exec /bin/sh /usr/local/nextcloud-kobo/run.sh
 fi
+# Uninstall
+if [ -f /mnt/onboard/.adds/nextcloud-kobo/UNINSTALL ]; then
+  echo "$(date) Uninstalling NextCloud-Kobo" >> /mnt/onboard/.adds/nextcloud-kobo/nextcloud-kobo.log
+  rm -rf /usr/local/nextcloud-kobo
+  rm -rf /mnt/onboard/.adds/nextcloud-kobo
+  rm -rf /etc/rules.d/*nextcloud-kobo*.rules
+  exit 0
+fi
 done) &
