@@ -17,8 +17,7 @@ is not guaranteed.
 
 ## Features
 
-- **Automatic Synchronization**: Syncs specified folders from Nextcloud to a designated folder on your Kobo eReader. The software relies on shares-as-webdav
-  every time it connects to the internet.
+- **Automatic Synchronization**: Syncs specified folders from Nextcloud to a designated folder on your Kobo eReader. This relies on Nextcloud's [shares-as-WebDAV](https://docs.nextcloud.com/server/20/user_manual/en/files/access_webdav.html#accessing-public-shares-over-webdav) feature.
 - **Support for Multiple Remotes**: Manage and sync multiple Nextcloud endpoints and folders.
 - **Daemon Mode**: Runs quietly in the background as a daemon process.
 - **Efficient Syncing**: Downloads only updated or new files to minimize data usage and speed up synchronization.
