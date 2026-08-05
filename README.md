@@ -34,7 +34,7 @@ To install the Nextcloud Sync Daemon on your Kobo eReader, follow these steps:
 
 ### Steps
 
-1. **Download the KoboRoot.tgz**: Go to the [releases page](https://github.com/aleskandro/kobo-nextcloud/releases) and
+1. **Download the KoboRoot.tgz**: Go to the [releases page](https://github.com/aleskandro/nextcloud-kobo/releases) and
    download the latest release with your Kobo device.
 
 2. **Transfer the binary to your Kobo**: Connect your Kobo eReader to your computer via USB and copy the downloaded
